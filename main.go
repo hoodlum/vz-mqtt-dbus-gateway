@@ -4,7 +4,7 @@ import (
 	"github.com/godbus/dbus/v5"
 	log "github.com/sirupsen/logrus"
 	"os"
-	"vz-mqtt-dbus-gateway/sml/Message"
+	//"vz-mqtt-dbus-gateway/sml/Message"
 )
 
 func init() {
@@ -52,6 +52,7 @@ func main() {
 	panic("Error: We terminated.... how did we ever get here?")
 }
 
+/*
 func decode(byteMessage []byte) {
 	message, _, err := Message.New(0, byteMessage)
 
@@ -69,3 +70,4 @@ func decode(byteMessage []byte) {
 
 	//log.Println(string(buf[:n]))
 }
+*/

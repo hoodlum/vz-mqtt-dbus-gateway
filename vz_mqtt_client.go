@@ -108,6 +108,8 @@ func startMqttGateway(messages chan SmartMeterData) {
 	log.Printf("Subscribed to %s", *mqttTopic)
 
 	watchdog := CreateWatchdog(time.Second*10, func() {
+		fmt.Println("Watchdog triggered, send null message")
+
 		emptyData := SmartMeterData{
 			ActualPower: 0,
 			TimeStamp:   UnixTime{time.Now()},
