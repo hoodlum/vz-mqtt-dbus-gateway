@@ -107,18 +107,6 @@ func startMqttGateway(messages chan SmartMeterData) {
 
 	log.Printf("Subscribed to %s", *mqttTopic)
 
-	watchdog := CreateWatchdog(time.Second*10, func() {
-		fmt.Println("Watchdog triggered, send null message")
-
-		emptyData := SmartMeterData{
-			ActualPower: 0,
-			TimeStamp:   UnixTime{time.Now()},
-			GridIn:      0.0,
-			GridOut:     0.0,
-		}
-		messages <- emptyData
-	})
-
 	for m := range msgChan {
 
 		message := string(m.Payload)
@@ -129,7 +117,6 @@ func startMqttGateway(messages chan SmartMeterData) {
 		err := json.Unmarshal([]byte(message), &data)
 		if err == nil {
 			//log.Println("Received json:", data)
-			watchdog.ResetWatchdog()
 			messages <- data
 		}
 

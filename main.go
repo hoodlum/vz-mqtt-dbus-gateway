@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"github.com/godbus/dbus/v5"
 	log "github.com/sirupsen/logrus"
 	"os"
+	"time"
 	//"vz-mqtt-dbus-gateway/sml/Message"
 )
 
@@ -33,8 +35,14 @@ func main() {
 
 	log.Info("connected to systembus: ")
 
+	watchdog := CreateWatchdog(time.Second*10, func() {
+		fmt.Println("Watchdog triggered, handle situation")
+		log.Fatal("Grace period exceeded, kill process to allow restart by venus-os")
+	})
+
 	go func() {
 		for m := range messages {
+			watchdog.ResetWatchdog()
 			updateVariantFromData(conn, m)
 		}
 		log.Info("Finish Handler")
@@ -51,23 +59,3 @@ func main() {
 	// This is a forever loop^^
 	panic("Error: We terminated.... how did we ever get here?")
 }
-
-/*
-func decode(byteMessage []byte) {
-	message, _, err := Message.New(0, byteMessage)
-
-	if err != nil || message == nil {
-		log.Println("ERROR - ")
-	}
-
-	log.Println("id: ", message.MessageBody.TransactionId)
-	//result := make([]byte, 4*128)
-	//buff := bytes.NewBuffer(result)
-	//for _, b := range message {
-	//	fmt.Fprintf(buff, "%02x ", b)
-	//}
-	//log.Println(buff.String())
-
-	//log.Println(string(buf[:n]))
-}
-*/
