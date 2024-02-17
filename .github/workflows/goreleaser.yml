@@ -34,7 +34,7 @@ jobs:
           # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
           GOOS: linux
           GOARCH: arm
-          GOARM=: 7
+          GOARM: 7
       -
         name: Upload assets
         uses: actions/upload-artifact@v4
