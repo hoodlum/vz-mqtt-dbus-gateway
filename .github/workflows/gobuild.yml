@@ -10,11 +10,13 @@ on:
     - main
 #    - staging
 #    - develop
-  pull_request:
-    branches:
-    - main
-#    - staging
-#    - develop
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+#  pull_request:
+#    branches:
+#    - main
+##    - staging
+##    - develop
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -63,16 +65,20 @@ jobs:
 #      env:
 #        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # required
 #      if: always() # Pick up events even if the job fails or is canceled.
-    - name: release
-      uses: "marvinpinto/action-automatic-releases@latest"
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
       with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "latest"
-        prerelease: true
-        title: "Development Build"
-        files: |
-          vz-mqtt-dbus-gateway*
-          vz-mqtt-dbus-gateway.*
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          Changes in this Release
+          - First Change
+          - Second Change
+        draft: false
+        prerelease: false
 
   # The "deploy" workflow
   deploy:
