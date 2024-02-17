@@ -63,20 +63,16 @@ jobs:
 #      env:
 #        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # required
 #      if: always() # Pick up events even if the job fails or is canceled.
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+    - name: release
+      uses: "marvinpinto/action-automatic-releases@latest"
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        body: |
-          Changes in this Release
-          - First Change
-          - Second Change
-        draft: false
-        prerelease: false
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          vz-mqtt-dbus-gateway*
+          vz-mqtt-dbus-gateway.*
 
   # The "deploy" workflow
   deploy:
