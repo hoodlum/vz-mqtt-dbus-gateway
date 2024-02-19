@@ -4,9 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"github.com/eclipse/paho.golang/paho"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net"
 	"os"
 	"os/signal"
@@ -34,7 +33,7 @@ func startMqttGateway(messages chan SmartMeterData) {
 	password := flag.String("password", "", "Password to match username")
 	flag.Parse()
 
-	logger := log.New(os.Stdout, "SUB: ", log.LstdFlags)
+	//logger := log.New(os.Stdout, "SUB: ", log.LstdFlags)
 
 	msgChan := make(chan *paho.Publish)
 
@@ -51,7 +50,7 @@ func startMqttGateway(messages chan SmartMeterData) {
 	})
 
 	//c.SetDebugLogger(logger)
-	c.SetErrorLogger(logger)
+	c.SetErrorLogger(log.StandardLogger())
 
 	cp := &paho.Connect{
 		KeepAlive:  30,
@@ -78,13 +77,13 @@ func startMqttGateway(messages chan SmartMeterData) {
 		log.Fatalf("Failed to connect to %s : %d - %s", *mqttServer, ca.ReasonCode, ca.Properties.ReasonString)
 	}
 
-	fmt.Printf("Connected to %s\n", *mqttServer)
+	log.Infof("MQTT: Connected to %s\n", *mqttServer)
 
 	ic := make(chan os.Signal, 1)
 	signal.Notify(ic, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-ic
-		fmt.Println("signal received, exiting")
+		log.Infof("signal received, exiting")
 		if c != nil {
 			d := &paho.Disconnect{ReasonCode: 0}
 			c.Disconnect(d)
@@ -102,25 +101,27 @@ func startMqttGateway(messages chan SmartMeterData) {
 	}
 
 	if sa.Reasons[0] != byte(*mqttQos) {
-		log.Fatalf("Failed to subscribe to %s : %d", *mqttTopic, sa.Reasons[0])
+		log.Fatalf("MQTT: Failed to subscribe to %s : %d", *mqttTopic, sa.Reasons[0])
 	}
 
-	log.Printf("Subscribed to %s", *mqttTopic)
+	log.Infof("MQTT: Subscribed to %s, starting Dispatcher", *mqttTopic)
 
+	// Map from MQTT and push to DBUS
 	for m := range msgChan {
 
 		message := string(m.Payload)
-		//log.Println("Received message:", message)
+		log.Debugf("Received message:", message)
 
 		var data SmartMeterData
 
 		err := json.Unmarshal([]byte(message), &data)
 		if err == nil {
-			//log.Println("Received json:", data)
+			log.Debugf("Received json:", data)
 			messages <- data
 		}
-
 	}
+
+	log.Fatal("MQTT: Passed Dispatcher loop, how did get here?")
 
 }
 
