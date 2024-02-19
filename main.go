@@ -35,7 +35,7 @@ func main() {
 
 	log.Info("DBUS: connected to Systembus")
 
-	watchdog := CreateWatchdog(time.Second*30, func() {
+	watchdog := CreateWatchdog(time.Second*10, func() {
 		fmt.Println("Watchdog triggered, handle situation")
 		log.Fatal("Grace period exceeded, kill process to allow restart by venus-os")
 	})
