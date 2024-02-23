@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
@@ -50,9 +51,18 @@ func (f objectpath) GetText() (string, *dbus.Error) {
 	return strings.Trim(victronValues[1][f].String(), "\""), nil
 }
 
-func publishInitialValues(conn *dbus.Conn) {
+func initDbus(conn *dbus.Conn) {
+
+	publishStatics := flag.Bool("publish_statics", false, "true/false")
 
 	initDbusVariants()
+	registerInterfaces(conn)
+	if *publishStatics {
+		pushStaticData(conn)
+	}
+}
+
+func registerInterfaces(conn *dbus.Conn) {
 
 	if conn == nil {
 		return
@@ -72,11 +82,15 @@ func publishInitialValues(conn *dbus.Conn) {
 		os.Exit(1)
 	}
 
+	log.Infof("DBUS: Names = %v \n", conn.Names())
+
 	for i, s := range basicPaths {
 		log.Debug("Registering dbus basic path #", i, ": ", s)
 		conn.Export(objectpath(s), s, "com.victronenergy.BusItem")
 		conn.Export(introspect.Introspectable(intro), s, "org.freedesktop.DBus.Introspectable")
 	}
+
+	return
 
 	for i, s := range updatingPaths {
 		log.Debug("Registering dbus update path #", i, ": ", s)
@@ -216,7 +230,7 @@ func initDbusVariants() {
 
 }
 
-func updateVariantFromData(conn *dbus.Conn, data SmartMeterData) {
+func pushSmartmeterData(conn *dbus.Conn, data SmartMeterData) {
 
 	defaultVoltage := 230
 	splittedPower := float64(data.ActualPower / 3)   // split to 3 lines
@@ -252,13 +266,19 @@ func updateVariantFromData(conn *dbus.Conn, data SmartMeterData) {
 
 }
 
-/* Write dbus Values to Victron handler */
-func updateVariant(conn *dbus.Conn, value float64, unit string, path string) {
+func pushStaticData(conn *dbus.Conn) {
 
-	if conn == nil {
-		return
+	for _, s := range basicPaths {
+		log.Debug("Registering dbus basic path: ", s)
+		emit := make(map[string]dbus.Variant)
+		emit["Text"] = victronValues[1][objectpath(s)]
+		emit["Value"] = victronValues[0][objectpath(s)]
+		conn.Emit(s, "com.victronenergy.BusItem.PropertiesChanged", emit)
 	}
+}
 
+func updateVariant(conn *dbus.Conn, value float64, unit string, path string) {
+	/* Write dbus Values to Victron handler */
 	emit := make(map[string]dbus.Variant)
 	emit["Text"] = dbus.MakeVariant(fmt.Sprintf("%.2f", value) + unit)
 	emit["Value"] = dbus.MakeVariant(float64(value))

@@ -101,27 +101,31 @@ func startMqttGateway(messages chan SmartMeterData) {
 	}
 
 	if sa.Reasons[0] != byte(*mqttQos) {
-		log.Fatalf("MQTT: Failed to subscribe to %s : %d", *mqttTopic, sa.Reasons[0])
+		log.Errorf("MQTT: Failed to subscribe to %s : %d", *mqttTopic, sa.Reasons[0])
+		return
 	}
 
 	log.Infof("MQTT: Subscribed to %s, starting Dispatcher", *mqttTopic)
 
-	// Map from MQTT and push to DBUS
-	for m := range msgChan {
+	//Dispatcher
+	go func() {
+		// Map from MQTT and push to DBUS
+		for m := range msgChan {
 
-		message := string(m.Payload)
-		log.Debugf("Received message:", message)
+			message := string(m.Payload)
+			//log.Debugf("Received message:", message)
 
-		var data SmartMeterData
+			var data SmartMeterData
 
-		err := json.Unmarshal([]byte(message), &data)
-		if err == nil {
-			log.Debugf("Received json:", data)
-			messages <- data
+			err := json.Unmarshal([]byte(message), &data)
+			if err == nil {
+				//log.Debugf("Received json:", data)
+				messages <- data
+			}
 		}
-	}
 
-	log.Fatal("MQTT: Passed Dispatcher loop, how did get here?")
+		log.Error("MQTT: Passed Dispatcher loop, how did get here?")
+	}()
 
 }
 

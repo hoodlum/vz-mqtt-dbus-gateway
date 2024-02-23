@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/godbus/dbus/v5"
 	log "github.com/sirupsen/logrus"
 	"os"
@@ -26,6 +25,7 @@ func init() {
 func main() {
 
 	messages := make(chan SmartMeterData)
+	signal := make(chan bool)
 
 	var conn, err = dbus.SystemBus()
 
@@ -36,32 +36,42 @@ func main() {
 	log.Info("DBUS: connected to Systembus")
 
 	watchdog := CreateWatchdog(time.Second*10, func() {
-		fmt.Println("Watchdog triggered, handle situation")
-		log.Fatal("Grace period exceeded, kill process to allow restart by venus-os")
+		//fmt.Println("Watchdog triggered, handle situation")
+		log.Error("Watchdog: triggered, kill process to allow restart by venus-os")
+		signal <- true
 	})
+	//watchdog.ResetWatchdog()
+
+	initDbus(conn)
+	log.Info("DBUS: Registered as a meter")
 
 	//Dispatcher
 	go func() {
 		log.Info("Gateway: Dispatcher started")
-		initNeeded := true
+		//initNeeded := true
 		for m := range messages {
-			if initNeeded {
-				publishInitialValues(conn)
-				log.Info("DBUS: Registered as a meter")
-				initNeeded = false
-			}
+			//if initNeeded {
+
+			//				log.Info("DBUS: Registered as a meter")
+			//				initNeeded = false
+			//			}
 			watchdog.ResetWatchdog()
-			updateVariantFromData(conn, m)
+			pushSmartmeterData(conn, m)
 		}
-		log.Info("Finish Handler")
+		log.Info("Gateway: Finish Handler")
 	}()
 
 	startMqttGateway(messages)
+
+	for _ = range signal {
+		log.Info("Gateway: got signal from watchdog to shutdown")
+		break
+	}
 
 	defer conn.Close()
 
 	//	log.Info("Successfully connected to dbus and registered as a meter... Commencing reading of the SDM630 meter")
 
 	// This is a forever loop^^
-	panic("Error: We terminated.... how did we ever get here?")
+	//panic("Error: We terminated.... how did we ever get here?")
 }
