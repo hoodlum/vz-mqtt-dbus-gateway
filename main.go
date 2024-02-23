@@ -58,10 +58,7 @@ func main() {
 	startMqttGateway(messages)
 
 	<-signal
-	//for _ = range signal {
 	log.Info("Gateway: got signal from watchdog to shutdown")
-	//	break
-	//}
 
 	defer conn.Close()
 }
