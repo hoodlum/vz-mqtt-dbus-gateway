@@ -34,9 +34,9 @@ var basicPaths, updatingPaths []dbus.ObjectPath
 
 var victronValues = map[int]map[objectpath]dbus.Variant{
 	// 0: This will be used to store the VALUE variant
-	0: map[objectpath]dbus.Variant{},
+	0: {},
 	// 1: This will be used to store the STRING variant
-	1: map[objectpath]dbus.Variant{},
+	1: {},
 }
 
 func (f objectpath) GetValue() (dbus.Variant, *dbus.Error) {
@@ -85,16 +85,27 @@ func registerInterfaces(conn *dbus.Conn) {
 	log.Infof("DBUS: Names = %v \n", conn.Names())
 
 	for i, s := range basicPaths {
-		log.Debug("Registering dbus basic path #", i, ": ", s)
-		conn.Export(objectpath(s), s, "com.victronenergy.BusItem")
-		conn.Export(introspect.Introspectable(intro), s, "org.freedesktop.DBus.Introspectable")
+		log.Debug("Registering dbus update path #", i, ": ", s)
+		exportInterface(conn, s)
 	}
 
 	for i, s := range updatingPaths {
 		log.Debug("Registering dbus update path #", i, ": ", s)
-		conn.Export(objectpath(s), s, "com.victronenergy.BusItem")
-		conn.Export(introspect.Introspectable(intro), s, "org.freedesktop.DBus.Introspectable")
+		exportInterface(conn, s)
 	}
+}
+
+func exportInterface(conn *dbus.Conn, s dbus.ObjectPath) {
+	err := conn.Export(objectpath(s), s, "com.victronenergy.BusItem")
+	if err != nil {
+		log.Debug("Failed to register BusItem Interface: ", s)
+	}
+
+	err = conn.Export(introspect.Introspectable(intro), s, "org.freedesktop.DBus.Introspectable")
+	if err != nil {
+		log.Debug("Failed to register Introspectable Interface: ", s)
+	}
+
 }
 
 func initDbusVariants() {
