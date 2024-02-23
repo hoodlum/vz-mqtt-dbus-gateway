@@ -40,7 +40,6 @@ func main() {
 		log.Error("Watchdog: triggered, kill process to allow restart by venus-os")
 		signal <- true
 	})
-	//watchdog.ResetWatchdog()
 
 	initDbus(conn)
 	log.Info("DBUS: Registered as a meter")
@@ -48,13 +47,8 @@ func main() {
 	//Dispatcher
 	go func() {
 		log.Info("Gateway: Dispatcher started")
-		//initNeeded := true
 		for m := range messages {
-			//if initNeeded {
 
-			//				log.Info("DBUS: Registered as a meter")
-			//				initNeeded = false
-			//			}
 			watchdog.ResetWatchdog()
 			pushSmartmeterData(conn, m)
 		}
@@ -63,15 +57,11 @@ func main() {
 
 	startMqttGateway(messages)
 
-	for _ = range signal {
-		log.Info("Gateway: got signal from watchdog to shutdown")
-		break
-	}
+	<-signal
+	//for _ = range signal {
+	log.Info("Gateway: got signal from watchdog to shutdown")
+	//	break
+	//}
 
 	defer conn.Close()
-
-	//	log.Info("Successfully connected to dbus and registered as a meter... Commencing reading of the SDM630 meter")
-
-	// This is a forever loop^^
-	//panic("Error: We terminated.... how did we ever get here?")
 }
