@@ -90,8 +90,6 @@ func registerInterfaces(conn *dbus.Conn) {
 		conn.Export(introspect.Introspectable(intro), s, "org.freedesktop.DBus.Introspectable")
 	}
 
-	return
-
 	for i, s := range updatingPaths {
 		log.Debug("Registering dbus update path #", i, ": ", s)
 		conn.Export(objectpath(s), s, "com.victronenergy.BusItem")
@@ -273,7 +271,10 @@ func pushStaticData(conn *dbus.Conn) {
 		emit := make(map[string]dbus.Variant)
 		emit["Text"] = victronValues[1][objectpath(s)]
 		emit["Value"] = victronValues[0][objectpath(s)]
-		conn.Emit(s, "com.victronenergy.BusItem.PropertiesChanged", emit)
+		err := conn.Emit(s, "com.victronenergy.BusItem.PropertiesChanged", emit)
+		if err != nil {
+			log.Debug("Fail to register dbus basic path: ", s)
+		}
 	}
 }
 
@@ -281,8 +282,11 @@ func updateVariant(conn *dbus.Conn, value float64, unit string, path string) {
 	/* Write dbus Values to Victron handler */
 	emit := make(map[string]dbus.Variant)
 	emit["Text"] = dbus.MakeVariant(fmt.Sprintf("%.2f", value) + unit)
-	emit["Value"] = dbus.MakeVariant(float64(value))
+	emit["Value"] = dbus.MakeVariant(value)
 	victronValues[0][objectpath(path)] = emit["Value"]
 	victronValues[1][objectpath(path)] = emit["Text"]
-	conn.Emit(dbus.ObjectPath(path), "com.victronenergy.BusItem.PropertiesChanged", emit)
+	err := conn.Emit(dbus.ObjectPath(path), "com.victronenergy.BusItem.PropertiesChanged", emit)
+	if err != nil {
+		log.Debug("Fail to emit signal for dbus basic path: ", path)
+	}
 }
