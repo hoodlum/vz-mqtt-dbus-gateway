@@ -11,7 +11,7 @@ builds:
 
 dockers:
 - image_templates:
-  - ["ghcr.io/hoodlum/{{ .ProjectName }}:{{ .Version }}-amd64"]
+  - "ghcr.io/hoodlum/{{ .ProjectName }}:{{ .Version }}-amd64"
   use: buildx
   build_flag_templates:
   - --pull
