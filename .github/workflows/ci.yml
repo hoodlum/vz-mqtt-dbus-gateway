@@ -43,6 +43,7 @@ jobs:
 
       - name: Debug Info
         run: |
+          date
           echo "Event: ${{ github.event_name }}"
           echo "Ref: ${{ github.ref }}"
           echo "Owner: ${{ env.OWNER_LOWER }}"
