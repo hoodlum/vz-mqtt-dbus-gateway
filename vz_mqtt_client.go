@@ -37,7 +37,7 @@ func startMqttGateway(messages chan SmartMeterData) {
 
 	msgChan := make(chan *paho.Publish)
 
-	conn, err := net.Dial("tcp", *mqttServer)
+	conn, err := net.DialTimeout("tcp", *mqttServer, 5*time.Second)
 	if err != nil {
 		log.Fatalf("Failed to connect to %s: %s", *mqttServer, err)
 	}
@@ -68,7 +68,10 @@ func startMqttGateway(messages chan SmartMeterData) {
 		cp.PasswordFlag = true
 	}
 
-	ca, err := c.Connect(context.Background(), cp)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ca, err := c.Connect(ctx, cp)
 	if err != nil {
 		log.Fatalln(err)
 	}

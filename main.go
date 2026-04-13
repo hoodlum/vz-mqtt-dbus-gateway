@@ -27,20 +27,19 @@ func init() {
 func main() {
 
 	messages := make(chan SmartMeterData)
-	signal := make(chan bool)
+	signal := make(chan bool, 1)
 
-	var conn, err = dbus.SystemBus()
+	conn, err := dbus.SystemBus()
 
 	if err != nil {
-		log.Info("Could not connect to Systembus")
+		log.Fatalf("Could not connect to Systembus: %v", err)
 	}
 
 	log.Info("DBUS: connected to Systembus")
 
 	watchdog := CreateWatchdog(time.Second*10, func() {
-		//fmt.Println("Watchdog triggered, handle situation")
 		log.Error("Watchdog: triggered, kill process to allow restart by venus-os")
-		signal <- true
+		os.Exit(1)
 	})
 
 	initDbus(conn)
