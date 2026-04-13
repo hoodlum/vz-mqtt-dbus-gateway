@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"github.com/godbus/dbus/v5"
 	log "github.com/sirupsen/logrus"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 	//"vz-mqtt-dbus-gateway/sml/Message"
 )
@@ -27,18 +30,21 @@ func init() {
 func main() {
 
 	messages := make(chan SmartMeterData)
-	signal := make(chan bool, 1)
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
 	conn, err := dbus.SystemBus()
 
 	if err != nil {
 		log.Fatalf("Could not connect to Systembus: %v", err)
 	}
+	defer conn.Close()
 
 	log.Info("DBUS: connected to Systembus")
 
 	watchdog := CreateWatchdog(time.Second*10, func() {
-		log.Error("Watchdog: triggered, kill process to allow restart by venus-os")
+		log.Error("Watchdog: triggered, marking data as invalid and killing process")
+		invalidateData(conn)
 		os.Exit(1)
 	})
 
@@ -46,20 +52,36 @@ func main() {
 	log.Info("DBUS: Registered as a meter")
 
 	//Dispatcher
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	go func() {
 		log.Info("Gateway: Dispatcher started")
-		for m := range messages {
-
-			watchdog.ResetWatchdog()
-			pushSmartmeterData(conn, m)
+		for {
+			select {
+			case m, ok := <-messages:
+				if !ok {
+					log.Info("Gateway: message channel closed")
+					return
+				}
+				watchdog.ResetWatchdog()
+				pushSmartmeterData(conn, m)
+			case <-ctx.Done():
+				return
+			}
 		}
-		log.Info("Gateway: Finish Handler")
 	}()
 
-	startMqttGateway(messages)
+	go func() {
+		for {
+			log.Info("Gateway: Starting MQTT gateway")
+			startMqttGateway(messages)
+			log.Warn("Gateway: MQTT gateway stopped, retrying in 5 seconds")
+			time.Sleep(5 * time.Second)
+		}
+	}()
 
-	<-signal
-	log.Info("Gateway: got signal from watchdog to shutdown")
-
-	defer conn.Close()
+	sig := <-signalChan
+	log.Infof("Gateway: received signal %v, shutting down", sig)
+	invalidateData(conn)
 }

@@ -39,7 +39,8 @@ func startMqttGateway(messages chan SmartMeterData) {
 
 	conn, err := net.DialTimeout("tcp", *mqttServer, 5*time.Second)
 	if err != nil {
-		log.Fatalf("Failed to connect to %s: %s", *mqttServer, err)
+		log.Errorf("Failed to connect to %s: %s", *mqttServer, err)
+		return
 	}
 
 	c := paho.NewClient(paho.ClientConfig{
@@ -73,26 +74,16 @@ func startMqttGateway(messages chan SmartMeterData) {
 
 	ca, err := c.Connect(ctx, cp)
 	if err != nil {
-		log.Fatalln(err)
+		log.Errorln(err)
+		return
 	}
 
 	if ca.ReasonCode != 0 {
-		log.Fatalf("Failed to connect to %s : %d - %s", *mqttServer, ca.ReasonCode, ca.Properties.ReasonString)
+		log.Errorf("Failed to connect to %s : %d - %s", *mqttServer, ca.ReasonCode, ca.Properties.ReasonString)
+		return
 	}
 
 	log.Infof("MQTT: Connected to %s\n", *mqttServer)
-
-	ic := make(chan os.Signal, 1)
-	signal.Notify(ic, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-ic
-		log.Infof("signal received, exiting")
-		if c != nil {
-			d := &paho.Disconnect{ReasonCode: 0}
-			c.Disconnect(d)
-		}
-		os.Exit(0)
-	}()
 
 	sa, err := c.Subscribe(context.Background(), &paho.Subscribe{
 		Subscriptions: map[string]paho.SubscribeOptions{
@@ -100,7 +91,8 @@ func startMqttGateway(messages chan SmartMeterData) {
 		},
 	})
 	if err != nil {
-		log.Fatalln(err)
+		log.Errorln(err)
+		return
 	}
 
 	if sa.Reasons[0] != byte(*mqttQos) {
@@ -111,25 +103,21 @@ func startMqttGateway(messages chan SmartMeterData) {
 	log.Infof("MQTT: Subscribed to %s, starting Dispatcher", *mqttTopic)
 
 	//Dispatcher
-	go func() {
-		// Map from MQTT and push to DBUS
-		for m := range msgChan {
+	for m := range msgChan {
 
-			message := string(m.Payload)
-			//log.Debugf("Received message:", message)
+		message := string(m.Payload)
+		//log.Debugf("Received message:", message)
 
-			var data SmartMeterData
+		var data SmartMeterData
 
-			err := json.Unmarshal([]byte(message), &data)
-			if err == nil {
-				//log.Debugf("Received json:", data)
-				messages <- data
-			}
+		err := json.Unmarshal([]byte(message), &data)
+		if err == nil {
+			//log.Debugf("Received json:", data)
+			messages <- data
 		}
+	}
 
-		log.Error("MQTT: Passed Dispatcher loop, how did get here?")
-	}()
-
+	log.Error("MQTT: Passed Dispatcher loop, connection probably lost")
 }
 
 type UnixTime struct {

@@ -301,3 +301,13 @@ func updateVariant(conn *dbus.Conn, value float64, unit string, path string) {
 		log.Debug("Fail to emit signal for dbus basic path: ", path)
 	}
 }
+
+func invalidateData(conn *dbus.Conn) {
+	log.Info("DBUS: Invalidating data")
+	for _, s := range updatingPaths {
+		emit := make(map[string]dbus.Variant)
+		emit["Text"] = dbus.MakeVariant("--")
+		emit["Value"] = dbus.MakeVariant(nil)
+		conn.Emit(s, "com.victronenergy.BusItem.PropertiesChanged", emit)
+	}
+}

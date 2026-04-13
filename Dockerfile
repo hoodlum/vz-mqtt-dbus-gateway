@@ -1,3 +1,5 @@
+ARG BINARY_NAME=vz-mqtt-dbus-gateway
 FROM scratch
-ENTRYPOINT ["/vz-mqtt-dbus-gateway"]
-COPY vz-mqtt-dbus-gateway /
+ARG BINARY_NAME
+COPY ${BINARY_NAME} /gateway
+ENTRYPOINT ["/gateway"]
