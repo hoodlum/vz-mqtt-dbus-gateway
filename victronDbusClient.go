@@ -138,8 +138,8 @@ func initDbusVariants() {
 	victronValues[0]["/Mgmt/ProcessName"] = dbus.MakeVariant("/opt/color-control/dbus-cgwacs/dbus-cgwacs")
 	victronValues[1]["/Mgmt/ProcessName"] = dbus.MakeVariant("/opt/color-control/dbus-cgwacs/dbus-cgwacs")
 
-	victronValues[0]["/Mgmt/ProcessVersion"] = dbus.MakeVariant("1.8.0")
-	victronValues[1]["/Mgmt/ProcessVersion"] = dbus.MakeVariant("1.8.0")
+	victronValues[0]["/Mgmt/ProcessVersion"] = dbus.MakeVariant(Version)
+	victronValues[1]["/Mgmt/ProcessVersion"] = dbus.MakeVariant(Version)
 
 	victronValues[0]["/Position"] = dbus.MakeVariantWithSignature(0, dbus.SignatureOf(123))
 	victronValues[1]["/Position"] = dbus.MakeVariant("0")

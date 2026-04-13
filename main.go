@@ -8,6 +8,8 @@ import (
 	//"vz-mqtt-dbus-gateway/sml/Message"
 )
 
+var Version = "dev"
+
 func init() {
 	lvl, ok := os.LookupEnv("LOG_LEVEL")
 	if !ok {
