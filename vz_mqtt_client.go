@@ -4,13 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"net"
+	"time"
+
 	"github.com/eclipse/paho.golang/paho"
 	log "github.com/sirupsen/logrus"
-	"net"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 // VZ message structure
