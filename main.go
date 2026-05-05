@@ -38,6 +38,7 @@ func main() {
 	username := flag.String("username", "", "A username to authenticate to the MQTT server")
 	password := flag.String("password", "", "Password to match username")
 	publishStatics := flag.Bool("publish_statics", false, "true/false")
+	forceExit := flag.Bool("force-exit", false, "Call os.Exit(1) when watchdog is triggered")
 	flag.Parse()
 
 	setupLogging(*logLevel)
@@ -55,10 +56,13 @@ func main() {
 
 	log.Info("DBUS: connected to Systembus")
 
+	forceExitVal := *forceExit
 	watchdog := CreateWatchdog(time.Second*10, func() {
-		log.Error("Watchdog: triggered, marking data as invalid and killing process")
+		log.Error("Watchdog: triggered, marking data as invalid")
 		invalidateData(conn)
-		//os.Exit(1)
+		if forceExitVal {
+			os.Exit(1)
+		}
 	})
 
 	initDbus(conn, publishStatics)
