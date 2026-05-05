@@ -56,6 +56,7 @@ func initDbus(conn *dbus.Conn, publishStatics *bool) {
 	initDbusVariants()
 	registerInterfaces(conn)
 	if *publishStatics {
+		log.Info("DBUS: Publish static values")
 		pushStaticData(conn)
 	}
 }
@@ -107,6 +108,7 @@ func exportInterface(conn *dbus.Conn, s dbus.ObjectPath) {
 }
 
 func initDbusVariants() {
+
 	// Need to implement following paths:
 	// https://github.com/victronenergy/venus/wiki/dbus#grid-meter
 	// also in system.py
@@ -244,6 +246,14 @@ func initDbusVariants() {
 		"/Ac/Frequency",
 	}
 
+	//invalid := dbus.MakeVariant([]int32{}) // empty int32 array)
+
+	// invalidate dynamic values
+	for _, s := range updatingPaths {
+		victronValues[1][objectpath(s)] = dbus.MakeVariant([]int32{})
+		victronValues[0][objectpath(s)] = dbus.MakeVariant([]int32{})
+	}
+
 }
 
 func pushSmartmeterData(conn *dbus.Conn, data SmartMeterData) {
@@ -312,14 +322,23 @@ func updateVariant(conn *dbus.Conn, value float64, unit string, path string) {
 func invalidateData(conn *dbus.Conn) {
 	log.Info("DBUS: Invalidating data")
 
-	invalid := dbus.MakeVariant(
-		[]int32{}, // empty int32 array
-	)
-
-	for _, s := range updatingPaths {
+	for _, path := range updatingPaths {
 		emit := make(map[string]dbus.Variant)
-		emit["Text"] = invalid
-		emit["Value"] = invalid
-		conn.Emit(s, "com.victronenergy.BusItem.PropertiesChanged", emit)
+		emit["Text"] = dbus.MakeVariant([]int32{})
+		emit["Value"] = dbus.MakeVariant([]int32{})
+		err := conn.Emit(path, "com.victronenergy.BusItem.PropertiesChanged", emit)
+		if err != nil {
+			log.Debug("Fail to emit signal for dbus basic path: ", path)
+		}
+	}
+
+	for _, path := range basicPaths {
+		emit := make(map[string]dbus.Variant)
+		emit["Text"] = dbus.MakeVariant([]int32{})
+		emit["Value"] = dbus.MakeVariant([]int32{})
+		err := conn.Emit(path, "com.victronenergy.BusItem.PropertiesChanged", emit)
+		if err != nil {
+			log.Debug("Fail to emit signal for dbus basic path: ", path)
+		}
 	}
 }

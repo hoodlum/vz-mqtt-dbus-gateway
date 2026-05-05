@@ -45,7 +45,7 @@ func main() {
 
 	messages := make(chan SmartMeterData)
 	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	conn, err := dbus.SystemBus()
 
@@ -101,4 +101,5 @@ func main() {
 	sig := <-signalChan
 	log.Infof("Gateway: received signal %v, shutting down", sig)
 	invalidateData(conn)
+	conn.Close()
 }
