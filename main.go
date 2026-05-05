@@ -2,32 +2,45 @@ package main
 
 import (
 	"context"
-	"github.com/godbus/dbus/v5"
-	log "github.com/sirupsen/logrus"
+	"flag"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/godbus/dbus/v5"
+	log "github.com/sirupsen/logrus"
 	//"vz-mqtt-dbus-gateway/sml/Message"
 )
 
 var Version = "dev"
 
-func init() {
-	lvl, ok := os.LookupEnv("LOG_LEVEL")
-	if !ok {
-		lvl = "info"
-	}
-
-	ll, err := log.ParseLevel(lvl)
+func setupLogging(logLevel string) {
+	ll, err := log.ParseLevel(logLevel)
 	if err != nil {
-		ll = log.DebugLevel
+		ll = log.InfoLevel
 	}
 
 	log.SetLevel(ll)
 }
 
 func main() {
+	logLevelEnv, ok := os.LookupEnv("LOG_LEVEL")
+	if !ok {
+		logLevelEnv = "info"
+	}
+
+	logLevel := flag.String("log-level", logLevelEnv, "Log level (debug, info, warn, error, fatal, panic)")
+	mqttServer := flag.String("server", "192.168.178.3:1883", "IP:Port")
+	mqttTopic := flag.String("topic", "/smartmeter1/power", "Topic to subscribe to")
+	mqttQos := flag.Int("qos", 0, "The QoS to subscribe to messages at")
+	mqttClientId := flag.String("clientid", "vz-mqtt-dbus-bridge", "A clientid for the connection")
+	username := flag.String("username", "", "A username to authenticate to the MQTT server")
+	password := flag.String("password", "", "Password to match username")
+	publishStatics := flag.Bool("publish_statics", false, "true/false")
+	flag.Parse()
+
+	setupLogging(*logLevel)
 
 	messages := make(chan SmartMeterData)
 	signalChan := make(chan os.Signal, 1)
@@ -45,10 +58,10 @@ func main() {
 	watchdog := CreateWatchdog(time.Second*10, func() {
 		log.Error("Watchdog: triggered, marking data as invalid and killing process")
 		invalidateData(conn)
-		os.Exit(1)
+		//os.Exit(1)
 	})
 
-	initDbus(conn)
+	initDbus(conn, publishStatics)
 	log.Info("DBUS: Registered as a meter")
 
 	//Dispatcher
@@ -75,7 +88,7 @@ func main() {
 	go func() {
 		for {
 			log.Info("Gateway: Starting MQTT gateway")
-			startMqttGateway(messages)
+			startMqttGateway(messages, *mqttServer, *mqttTopic, *mqttQos, *mqttClientId, *username, *password)
 			log.Warn("Gateway: MQTT gateway stopped, retrying in 5 seconds")
 			time.Sleep(5 * time.Second)
 		}

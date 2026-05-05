@@ -1,13 +1,13 @@
 package main
 
 import (
-	"flag"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
 	log "github.com/sirupsen/logrus"
-	"os"
-	"strings"
 )
 
 type objectpath string
@@ -51,9 +51,7 @@ func (f objectpath) GetText() (string, *dbus.Error) {
 	return strings.Trim(victronValues[1][f].String(), "\""), nil
 }
 
-func initDbus(conn *dbus.Conn) {
-
-	publishStatics := flag.Bool("publish_statics", false, "true/false")
+func initDbus(conn *dbus.Conn, publishStatics *bool) {
 
 	initDbusVariants()
 	registerInterfaces(conn)
@@ -164,6 +162,8 @@ func initDbusVariants() {
 	// @400000005ecc11bf387b28ec     return sum(values) if values else None
 	// @400000005ecc11bf38b2bb7c TypeError: unsupported operand type(s) for +: 'int' and 'unicode'
 	//
+	victronValues[0]["/Ac/Power"] = dbus.MakeVariant(0.0)
+	victronValues[1]["/Ac/Power"] = dbus.MakeVariant("0 W")
 	victronValues[0]["/Ac/L1/Power"] = dbus.MakeVariant(0.0)
 	victronValues[1]["/Ac/L1/Power"] = dbus.MakeVariant("0 W")
 	victronValues[0]["/Ac/L2/Power"] = dbus.MakeVariant(0.0)
@@ -185,6 +185,8 @@ func initDbusVariants() {
 	victronValues[0]["/Ac/L3/Current"] = dbus.MakeVariant(0.0)
 	victronValues[1]["/Ac/L3/Current"] = dbus.MakeVariant("0 A")
 
+	victronValues[0]["/Ac/Energy/Forward"] = dbus.MakeVariant(0.0)
+	victronValues[1]["/Ac/Energy/Forward"] = dbus.MakeVariant("0 kWh")
 	victronValues[0]["/Ac/L1/Energy/Forward"] = dbus.MakeVariant(0.0)
 	victronValues[1]["/Ac/L1/Energy/Forward"] = dbus.MakeVariant("0 kWh")
 	victronValues[0]["/Ac/L2/Energy/Forward"] = dbus.MakeVariant(0.0)
@@ -192,6 +194,8 @@ func initDbusVariants() {
 	victronValues[0]["/Ac/L3/Energy/Forward"] = dbus.MakeVariant(0.0)
 	victronValues[1]["/Ac/L3/Energy/Forward"] = dbus.MakeVariant("0 kWh")
 
+	victronValues[0]["/Ac/Energy/Reverse"] = dbus.MakeVariant(0.0)
+	victronValues[1]["/Ac/Energy/Reverse"] = dbus.MakeVariant("0 kWh")
 	victronValues[0]["/Ac/L1/Energy/Reverse"] = dbus.MakeVariant(0.0)
 	victronValues[1]["/Ac/L1/Energy/Reverse"] = dbus.MakeVariant("0 kWh")
 	victronValues[0]["/Ac/L2/Energy/Reverse"] = dbus.MakeVariant(0.0)
@@ -219,6 +223,7 @@ func initDbusVariants() {
 	}
 
 	updatingPaths = []dbus.ObjectPath{
+		"/Ac/Power",
 		"/Ac/L1/Power",
 		"/Ac/L2/Power",
 		"/Ac/L3/Power",
@@ -228,9 +233,11 @@ func initDbusVariants() {
 		"/Ac/L1/Current",
 		"/Ac/L2/Current",
 		"/Ac/L3/Current",
+		"/Ac/Energy/Forward",
 		"/Ac/L1/Energy/Forward",
 		"/Ac/L2/Energy/Forward",
 		"/Ac/L3/Energy/Forward",
+		"/Ac/Energy/Reverse",
 		"/Ac/L1/Energy/Reverse",
 		"/Ac/L2/Energy/Reverse",
 		"/Ac/L3/Energy/Reverse",

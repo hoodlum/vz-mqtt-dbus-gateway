@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"net"
 	"time"
 
@@ -21,23 +20,15 @@ type SmartMeterData struct {
 	ActualPower int32   `json:"power16_7_0"`
 }
 
-func startMqttGateway(messages chan SmartMeterData) {
-
-	mqttServer := flag.String("server", "192.168.178.3:1883", "IP:Port")
-	mqttTopic := flag.String("topic", "/smartmeter1/power", "Topic to subscribe to")
-	mqttQos := flag.Int("qos", 0, "The QoS to subscribe to messages at")
-	mqttClientId := flag.String("clientid", "vz-mqtt-dbus-bridge", "A clientid for the connection")
-	username := flag.String("username", "", "A username to authenticate to the MQTT server")
-	password := flag.String("password", "", "Password to match username")
-	flag.Parse()
+func startMqttGateway(messages chan SmartMeterData, mqttServer string, mqttTopic string, mqttQos int, mqttClientId string, username string, password string) {
 
 	//logger := log.New(os.Stdout, "SUB: ", log.LstdFlags)
 
 	msgChan := make(chan *paho.Publish)
 
-	conn, err := net.DialTimeout("tcp", *mqttServer, 5*time.Second)
+	conn, err := net.DialTimeout("tcp", mqttServer, 5*time.Second)
 	if err != nil {
-		log.Errorf("Failed to connect to %s: %s", *mqttServer, err)
+		log.Errorf("Failed to connect to %s: %s", mqttServer, err)
 		return
 	}
 
@@ -53,17 +44,17 @@ func startMqttGateway(messages chan SmartMeterData) {
 
 	cp := &paho.Connect{
 		KeepAlive:  30,
-		ClientID:   *mqttClientId,
+		ClientID:   mqttClientId,
 		CleanStart: true,
-		//Username:   *username,
-		//Password:   []byte(*password),
+		//Username:   username,
+		//Password:   []byte(password),
 	}
 
-	if *username != "" {
+	if username != "" {
 		cp.UsernameFlag = true
 	}
 
-	if *password != "" {
+	if password != "" {
 		cp.PasswordFlag = true
 	}
 
@@ -77,15 +68,15 @@ func startMqttGateway(messages chan SmartMeterData) {
 	}
 
 	if ca.ReasonCode != 0 {
-		log.Errorf("Failed to connect to %s : %d - %s", *mqttServer, ca.ReasonCode, ca.Properties.ReasonString)
+		log.Errorf("Failed to connect to %s : %d - %s", mqttServer, ca.ReasonCode, ca.Properties.ReasonString)
 		return
 	}
 
-	log.Infof("MQTT: Connected to %s\n", *mqttServer)
+	log.Infof("MQTT: Connected to %s\n", mqttServer)
 
 	sa, err := c.Subscribe(context.Background(), &paho.Subscribe{
 		Subscriptions: map[string]paho.SubscribeOptions{
-			*mqttTopic: {QoS: byte(*mqttQos)},
+			mqttTopic: {QoS: byte(mqttQos)},
 		},
 	})
 	if err != nil {
@@ -93,12 +84,12 @@ func startMqttGateway(messages chan SmartMeterData) {
 		return
 	}
 
-	if sa.Reasons[0] != byte(*mqttQos) {
-		log.Errorf("MQTT: Failed to subscribe to %s : %d", *mqttTopic, sa.Reasons[0])
+	if sa.Reasons[0] != byte(mqttQos) {
+		log.Errorf("MQTT: Failed to subscribe to %s : %d", mqttTopic, sa.Reasons[0])
 		return
 	}
 
-	log.Infof("MQTT: Subscribed to %s, starting Dispatcher", *mqttTopic)
+	log.Infof("MQTT: Subscribed to %s, starting Dispatcher", mqttTopic)
 
 	//Dispatcher
 	for m := range msgChan {
