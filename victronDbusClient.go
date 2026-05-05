@@ -312,10 +312,14 @@ func updateVariant(conn *dbus.Conn, value float64, unit string, path string) {
 func invalidateData(conn *dbus.Conn) {
 	log.Info("DBUS: Invalidating data")
 
+	invalid := dbus.MakeVariant(
+		[]int32{}, // empty int32 array
+	)
+
 	for _, s := range updatingPaths {
 		emit := make(map[string]dbus.Variant)
-		emit["Text"] = dbus.MakeVariant("")
-		emit["Value"] = dbus.MakeVariant("")
+		emit["Text"] = invalid
+		emit["Value"] = invalid
 		conn.Emit(s, "com.victronenergy.BusItem.PropertiesChanged", emit)
 	}
 }
