@@ -39,9 +39,18 @@ func main() {
 	password := flag.String("password", "", "Password to match username")
 	publishStatics := flag.Bool("publish_statics", false, "true/false")
 	forceExit := flag.Bool("force-exit", false, "Call os.Exit(1) when watchdog is triggered")
+	syslogAddr := flag.String("syslog", "", "Forward logs to a remote syslog server via UDP (host:port)")
 	flag.Parse()
 
 	setupLogging(*logLevel)
+
+	if *syslogAddr != "" {
+		if err := setupSyslog(*syslogAddr); err != nil {
+			log.Warnf("Syslog: could not set up forwarding to %s: %v", *syslogAddr, err)
+		} else {
+			log.Infof("Syslog: forwarding logs to %s", *syslogAddr)
+		}
+	}
 
 	messages := make(chan SmartMeterData)
 	signalChan := make(chan os.Signal, 1)
