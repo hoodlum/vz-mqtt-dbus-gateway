@@ -332,13 +332,4 @@ func invalidateData(conn *dbus.Conn) {
 		}
 	}
 
-	for _, path := range basicPaths {
-		emit := make(map[string]dbus.Variant)
-		emit["Text"] = dbus.MakeVariant([]int32{})
-		emit["Value"] = dbus.MakeVariant([]int32{})
-		err := conn.Emit(path, "com.victronenergy.BusItem.PropertiesChanged", emit)
-		if err != nil {
-			log.Debug("Fail to emit signal for dbus basic path: ", path)
-		}
-	}
 }

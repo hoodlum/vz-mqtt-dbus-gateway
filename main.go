@@ -56,17 +56,17 @@ func main() {
 
 	log.Info("DBUS: connected to Systembus")
 
-	forceExitVal := *forceExit
+	initDbus(conn, publishStatics)
+	log.Info("DBUS: Registered as a meter")
+
 	watchdog := CreateWatchdog(time.Second*10, func() {
 		log.Error("Watchdog: triggered, marking data as invalid")
 		invalidateData(conn)
-		if forceExitVal {
+		if *forceExit {
 			os.Exit(1)
 		}
 	})
-
-	initDbus(conn, publishStatics)
-	log.Info("DBUS: Registered as a meter")
+	log.Info("Watchdog: Started")
 
 	//Dispatcher
 	ctx, cancel := context.WithCancel(context.Background())
@@ -101,5 +101,5 @@ func main() {
 	sig := <-signalChan
 	log.Infof("Gateway: received signal %v, shutting down", sig)
 	invalidateData(conn)
-	conn.Close()
+
 }
