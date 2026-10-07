@@ -3,8 +3,11 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -14,6 +17,37 @@ import (
 )
 
 var Version = "dev"
+
+// resolveVersion falls back to the VCS revision embedded by `go build`
+// when Version was not set via -ldflags (e.g. local deploy builds).
+func resolveVersion() string {
+	if Version != "dev" {
+		return Version
+	}
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return Version
+	}
+	revision, modified := "", false
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			revision = s.Value
+		case "vcs.modified":
+			modified = s.Value == "true"
+		}
+	}
+	if revision == "" {
+		return Version
+	}
+	if len(revision) > 7 {
+		revision = revision[:7]
+	}
+	if modified {
+		revision += "-dirty"
+	}
+	return Version + "-" + revision
+}
 
 func setupLogging(logLevel string) {
 	ll, err := log.ParseLevel(logLevel)
@@ -40,7 +74,14 @@ func main() {
 	publishStatics := flag.Bool("publish_statics", false, "true/false")
 	forceExit := flag.Bool("force-exit", false, "Call os.Exit(1) when watchdog is triggered")
 	syslogAddr := flag.String("syslog", "", "Forward logs to a remote syslog server via UDP (host:port)")
+	showVersion := flag.Bool("version", false, "Print version information and exit")
 	flag.Parse()
+
+	Version = resolveVersion()
+	if *showVersion {
+		fmt.Printf("vz-mqtt-dbus-gateway %s (%s, %s/%s)\n", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+		return
+	}
 
 	setupLogging(*logLevel)
 
@@ -51,6 +92,8 @@ func main() {
 			log.Infof("Syslog: forwarding logs to %s", *syslogAddr)
 		}
 	}
+
+	log.Infof("Gateway: starting version %s", Version)
 
 	messages := make(chan SmartMeterData)
 	signalChan := make(chan os.Signal, 1)
