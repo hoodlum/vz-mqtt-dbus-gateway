@@ -1,3 +1,4 @@
 vz-mqtt-dbus-gateway.exe
 /vz-mqtt-dbus-gateway
 deploy-armv7.bat
+dist/
