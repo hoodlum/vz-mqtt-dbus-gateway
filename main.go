@@ -56,6 +56,8 @@ func setupLogging(logLevel string) {
 	}
 
 	log.SetLevel(ll)
+	// microseconds keep the order of entries logged within the same second
+	log.SetFormatter(&log.TextFormatter{FullTimestamp: true, TimestampFormat: "2006-01-02T15:04:05.000000Z07:00"})
 }
 
 func main() {
