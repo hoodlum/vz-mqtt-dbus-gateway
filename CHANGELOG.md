@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.1 (2026-10-10)
+
+### Fixes
+- The gateway reconnects to the MQTT broker after the connection is lost (broker restart, network error, missed pings). Before, it stayed disconnected until it was restarted by hand, unless `--force-exit` was set, so ESS ran without a grid meter.
+- `--username` / `--password` are now sent to the broker. Before, only the flags were set and the values were empty.
+- No crash when the broker rejects the connection without a reason string.
+
 ## v1.0.0 (2026-10-10)
 
 ### Fixes
