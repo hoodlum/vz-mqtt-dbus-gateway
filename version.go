@@ -8,7 +8,7 @@ import (
 
 // Set at build time, see build.sh and .goreleaser.yaml:
 //
-//	-ldflags "-X main.version=v0.7.0 -X main.commit=fb1b43b -X main.date=2026-10-09T21:31:00Z"
+//	-ldflags "-X main.version=v1.0.0 -X main.commit=fb1b43b -X main.date=2026-10-09T21:31:00Z"
 var (
 	version = ""
 	commit  = ""
