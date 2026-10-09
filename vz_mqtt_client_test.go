@@ -102,3 +102,25 @@ func TestMqttSessionReturnsOnServerDisconnect(t *testing.T) {
 	}
 	waitReturned(t, returned)
 }
+
+func TestMqttSessionSendsCredentials(t *testing.T) {
+	cases := []struct {
+		username, password string
+	}{
+		{"", ""},
+		{"meter", ""},
+		{"meter", "secret"},
+	}
+
+	for _, c := range cases {
+		server, connect, returned := startSession(t, c.username, c.password)
+		if connect.UsernameFlag != (c.username != "") || connect.Username != c.username {
+			t.Errorf("username %q: got flag %v, value %q", c.username, connect.UsernameFlag, connect.Username)
+		}
+		if connect.PasswordFlag != (c.password != "") || string(connect.Password) != c.password {
+			t.Errorf("password %q: got flag %v, value %q", c.password, connect.PasswordFlag, connect.Password)
+		}
+		server.Close()
+		waitReturned(t, returned)
+	}
+}

@@ -22,6 +22,27 @@ type SmartMeterData struct {
 	ActualPower int32   `json:"power16_7_0"`
 }
 
+// newConnectPacket only sends credentials that are set, an anonymous broker
+// may reject a connect with an empty username.
+func newConnectPacket(clientId, username, password string) *paho.Connect {
+	cp := &paho.Connect{
+		KeepAlive:  30,
+		ClientID:   clientId,
+		CleanStart: true,
+	}
+
+	if username != "" {
+		cp.UsernameFlag = true
+		cp.Username = username
+	}
+	if password != "" {
+		cp.PasswordFlag = true
+		cp.Password = []byte(password)
+	}
+
+	return cp
+}
+
 func startMqttGateway(messages chan SmartMeterData, mqttServer string, mqttTopic string, mqttQos int, mqttClientId string, username string, password string) {
 
 	conn, err := net.DialTimeout("tcp", mqttServer, 5*time.Second)
@@ -70,21 +91,7 @@ func runMqttSession(conn net.Conn, messages chan SmartMeterData, mqttServer stri
 	//c.SetDebugLogger(logger)
 	c.SetErrorLogger(log.StandardLogger())
 
-	cp := &paho.Connect{
-		KeepAlive:  30,
-		ClientID:   mqttClientId,
-		CleanStart: true,
-		//Username:   username,
-		//Password:   []byte(password),
-	}
-
-	if username != "" {
-		cp.UsernameFlag = true
-	}
-
-	if password != "" {
-		cp.PasswordFlag = true
-	}
+	cp := newConnectPacket(mqttClientId, username, password)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -96,7 +103,11 @@ func runMqttSession(conn net.Conn, messages chan SmartMeterData, mqttServer stri
 	}
 
 	if ca.ReasonCode != 0 {
-		log.Errorf("Failed to connect to %s : %d - %s", mqttServer, ca.ReasonCode, ca.Properties.ReasonString)
+		reason := ""
+		if ca.Properties != nil {
+			reason = ca.Properties.ReasonString
+		}
+		log.Errorf("Failed to connect to %s : %d - %s", mqttServer, ca.ReasonCode, reason)
 		return
 	}
 
