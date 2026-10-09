@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/eclipse/paho.golang/paho"
@@ -22,21 +24,47 @@ type SmartMeterData struct {
 
 func startMqttGateway(messages chan SmartMeterData, mqttServer string, mqttTopic string, mqttQos int, mqttClientId string, username string, password string) {
 
-	//logger := log.New(os.Stdout, "SUB: ", log.LstdFlags)
-
-	msgChan := make(chan *paho.Publish)
-
 	conn, err := net.DialTimeout("tcp", mqttServer, 5*time.Second)
 	if err != nil {
 		log.Errorf("Failed to connect to %s: %s", mqttServer, err)
 		return
 	}
+	defer conn.Close()
+
+	runMqttSession(conn, messages, mqttServer, mqttTopic, mqttQos, mqttClientId, username, password)
+}
+
+// runMqttSession forwards smart meter messages until the connection is lost,
+// so the caller can reconnect.
+func runMqttSession(conn net.Conn, messages chan SmartMeterData, mqttServer string, mqttTopic string, mqttQos int, mqttClientId string, username string, password string) {
+
+	//logger := log.New(os.Stdout, "SUB: ", log.LstdFlags)
+
+	msgChan := make(chan *paho.Publish)
+	// closed on connection loss, ends the dispatcher so main reconnects
+	done := make(chan struct{})
+	var doneOnce sync.Once
+	connectionLost := func(reason string) {
+		doneOnce.Do(func() {
+			log.Warnf("MQTT: connection lost: %s", reason)
+			close(done)
+		})
+	}
 
 	c := paho.NewClient(paho.ClientConfig{
 		Router: paho.NewSingleHandlerRouter(func(m *paho.Publish) {
-			msgChan <- m
+			select {
+			case msgChan <- m:
+			case <-done:
+			}
 		}),
 		Conn: conn,
+		OnClientError: func(err error) {
+			connectionLost(err.Error())
+		},
+		OnServerDisconnect: func(d *paho.Disconnect) {
+			connectionLost(fmt.Sprintf("server disconnect, reason code %d", d.ReasonCode))
+		},
 	})
 
 	//c.SetDebugLogger(logger)
@@ -72,7 +100,7 @@ func startMqttGateway(messages chan SmartMeterData, mqttServer string, mqttTopic
 		return
 	}
 
-	log.Infof("MQTT: Connected to %s\n", mqttServer)
+	log.Infof("MQTT: Connected to %s", mqttServer)
 
 	sa, err := c.Subscribe(context.Background(), &paho.Subscribe{
 		Subscriptions: map[string]paho.SubscribeOptions{
@@ -92,21 +120,17 @@ func startMqttGateway(messages chan SmartMeterData, mqttServer string, mqttTopic
 	log.Infof("MQTT: Subscribed to %s, starting Dispatcher", mqttTopic)
 
 	//Dispatcher
-	for m := range msgChan {
-
-		message := string(m.Payload)
-		//log.Debugf("Received message:", message)
-
-		var data SmartMeterData
-
-		err := json.Unmarshal([]byte(message), &data)
-		if err == nil {
-			//log.Debugf("Received json:", data)
-			messages <- data
+	for {
+		select {
+		case m := <-msgChan:
+			var data SmartMeterData
+			if err := json.Unmarshal(m.Payload, &data); err == nil {
+				messages <- data
+			}
+		case <-done:
+			return
 		}
 	}
-
-	log.Error("MQTT: Passed Dispatcher loop, connection probably lost")
 }
 
 type UnixTime struct {
