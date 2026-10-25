@@ -37,6 +37,26 @@ smart meter ──> (publisher, not in this repo) ──MQTT──> vz-mqtt-dbus
 | Runtime | `/data/rc.local` → `/data/vz-mqtt-dbus-gateway/startup.sh` (restart loop) → binary |
 | Release | Git tag `vX.Y.Z` → GitHub Actions → GoReleaser v2 → GitHub release with tarballs and `checksums.txt` |
 
+## Open findings (2026-10-25)
+
+Found while writing this documentation. **None of them is fixed yet.** The owner hasn't decided whether they go into a v1.0.2 or into the migration. Details, evidence and proposed fixes: [migration-guide.md](migration-guide.md#details-of-the-open-findings).
+
+| # | Severity | Finding | Effect on ESS |
+|---|---|---|---|
+| K1 | High | The D-Bus value store `victronValues` is read and written concurrently without a lock (confirmed: godbus serves every call in its own goroutine). | Go can abort the process (`fatal error: concurrent map read and map write`). The grid meter is gone until `startup.sh` restarts it after 10 s. |
+| K2 | Medium | Invalidation only emits `PropertiesChanged`; the stored values stay. | A consumer that reads `GetValue` after the watchdog fired gets the last real value instead of "invalid". |
+| K3 | Medium | Valid JSON with missing fields (e.g. `{}`) counts as a message. | The watchdog is reset and 0 W / 0 kWh are published instead of "invalid". |
+
+Not verified on the Venus (taken from the first handover, 2026-10-10):
+
+- The content of `/data/rc.local`.
+- Where the output is redirected to `/data/vz-mqtt-dbus-gateway/vz-mqtt-dbus-gateway.log`. The binary only writes to stdout/stderr, so the redirect is in `rc.local` or in the owner's setup.
+
+Repository housekeeping:
+
+- The root `README.md` describes v0.1.0 (download URL and archive name are outdated) and doesn't link to `docs/`.
+- `bin/startup.sh` differs from the one on the Venus (no `--syslog`, no `--publish_statics`).
+
 ## Rules that came out of operating it
 
 - Ask the owner before pushing to GitHub (including tags) and before running anything on the Venus.

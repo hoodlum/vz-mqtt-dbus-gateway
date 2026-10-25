@@ -46,6 +46,31 @@ Decide for each one whether the migration fixes it or deliberately keeps it. **F
 | K10 | Info | The restart cost is ~10–15 s of no grid meter (`sleep 10` in `startup.sh`). | `startup.sh` | Shorter sleep, or Venus OS's own service supervision instead of the shell loop. |
 | K11 | Info | Release tags of this module are v1.x. A v2+ tag needs the module path suffix `/v2` for the build-info version fallback. | `go.mod` | Only relevant without ldflags. |
 
+### Details of the open findings
+
+Found on 2026-10-25 while writing this documentation; not fixed in v1.0.1.
+
+#### K1: concurrent access to `victronValues` (high)
+
+- **Evidence:** `victronValues` is a plain `map[int]map[objectpath]dbus.Variant` (`victronDbusClient.go`). The dispatcher goroutine writes it in `updateVariant` for every message (19 paths, two entries each). `objectpath.GetValue`/`GetText` read it. godbus v5.1.0 runs every incoming method call in its own goroutine (`conn.go:435`: `go conn.handleCall(msg)`). There's no mutex.
+- **Impact:** the Go runtime detects concurrent map reads and writes and aborts the process with `fatal error: concurrent map read and map write`. `recover` can't catch that. Every `GetValue`/`GetText` call (Venus OS services reading the paths, the GUI, `dbus-spy`, `dbus -y`) can collide with a write; the risk grows with the number of calls. How often Venus OS calls `GetValue` instead of following the signals hasn't been measured. After an abort, `startup.sh` restarts the gateway after 10 s; ESS has no grid meter during that time. Check the log store for this message to see whether it has happened.
+- **Fix:** a `sync.RWMutex` around every access to `victronValues` (write lock in `updateVariant` and the invalidation, read lock in `GetValue`/`GetText`). Alternatively, one goroutine owns the values and answers via channels, or the values are stored in an `atomic.Value` per path.
+- **Test:** a test that calls `GetValue` in parallel with `pushSmartmeterData`, run with `go test -race`. The race detector needs CGO and a C compiler; on Windows without one, run it in CI (`ubuntu-latest`, `CGO_ENABLED=1`).
+
+#### K2: invalidation leaves the stored values (medium)
+
+- **Evidence:** `invalidateData` emits `PropertiesChanged` with `[]int32{}` for every dynamic path but doesn't write `victronValues`. `GetValue`/`GetText` return what's stored, i.e. the last valid measurement.
+- **Impact:** consumers that follow the signals see "invalid". Consumers that read with `GetValue` (e.g. after their own restart, or `dbus -y … GetValue`) get the stale value. That contradicts principle 1 ([design-decisions.md](design-decisions.md#principles)). On shutdown the effect is short, because the name disappears with the process. After the watchdog fires, it lasts until the next message.
+- **Fix:** in `invalidateData`, also set `victronValues[0][path]` and `victronValues[1][path]` to `dbus.MakeVariant([]int32{})`, under the same lock as K1.
+- **Test:** call `invalidateData` after `pushSmartmeterData`, then `GetValue` must return an empty array for every dynamic path. This needs a D-Bus-free variant of the emit, or a test against a private bus.
+
+#### K3: incomplete JSON is accepted (medium)
+
+- **Evidence:** `runMqttSession` decodes into `SmartMeterData` with `json.Unmarshal`. Missing fields keep their zero value, and unknown fields are ignored. Every message that decodes without an error goes to `messages`; the dispatcher resets the watchdog and publishes it.
+- **Impact:** a publisher error, a format change, or a different message on the same topic (e.g. `{}` or `{"status":"ok"}`) publishes `/Ac/Power = 0` and energy counters of `0` instead of "invalid". ESS then regulates as if there were no grid flow, and energy statistics can show a jump to 0 and back.
+- **Fix:** make the fields mandatory, e.g. pointer fields (`*int32`, `*float64`) and drop the message if `power16_7_0` (and optionally the energy fields) is missing; log the drop at debug level. Energy counters of 0 could also be rejected, since real meter counters never go back to 0.
+- **Test:** a table test for the decoding: complete message accepted; `{}`, a missing `power16_7_0`, and non-JSON rejected.
+
 ## Acceptance tests before cut-over
 
 Automated (existing tests, extend for the new implementation):
